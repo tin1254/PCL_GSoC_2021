@@ -3,7 +3,6 @@
 #include <vector>
 #include <unordered_map>
 #include <Eigen/Dense>
-#include <iterator>
 
 class PointXYZ
 {
@@ -16,6 +15,8 @@ class PointCloudT
 {
 public:
     PointCloudT() {}
+
+    void push_back(PointT p) {}
 };
 
 template <typename PointT>
@@ -31,59 +32,49 @@ public:
 
 // ================== Base of VoxelGrid ==================
 
-// Check the point type:
-
-// Option 1
-// Read the point type based on the returning type of reduceGrid(...)
-// With this implementation, I think we can't check beforehand if
-// the user provided the mandatory functions
-// (use invoke_result_t from C++17)
-#define GET_POINT_TYPE_1(GridStruct, Grid) \
-    typename std::result_of_t<decltype (&GridStruct::reduceGrid)(GridStruct, const Grid &)>
-
-// Option 2
-// Check typedef/using in the GridStruct
-// Require user to define it
-#define GET_POINT_TYPE_2(GridStruct) \
+// Check point type by looking at typedef/using in the GridStruct,
+// require user to define it
+#define GET_POINT_TYPE(GridStruct) \
     typename GridStruct::PointType
 
-template <typename GridStruct, typename Grid, typename PointT = GET_POINT_TYPE_2(GridStruct)>
+template <typename GridStruct, typename Grids, typename PointT = GET_POINT_TYPE(GridStruct)>
 class GridFilter : public GridStruct, public Filter<PointT>
 {
     // TODO:
     // check if the required functions exist in Grid
-    // by e.g. https://jguegant.github.io/blogs/tech/sfinae-introduction.html
+    // static_assert(...);
 
-    // I want to at least enforce user use unordered_map
-    // otherwise the class structure will be over-complicated (I think)
-    using Grids = std::unordered_map<size_t, Grid>;
     using PointCloud = PointCloudT<PointT>;
 
 public:
-    GridFilter() : GridStruct()
+    GridFilter() : GridStruct(input_, grids_)
     {
     }
 
 protected:
     void applyFilter(PointCloud &output)
     {
-        // ...
-        GridStruct::setUp(grids_);
+        // move setup to the contructor of GridStruct?
+        // GridStruct::setUp(input_, grids_);
         GridStruct::addPointsToGrid(input_, grids_);
 
         for (const auto &grid : grids_)
         {
-            GridStruct::filterGrid(grid.second);
-            GridStruct::reduceGrid(grid.second);
+            if (GridStruct::filterGrid(grid))
+                continue;
+
+            output.push_back(GridStruct::reduceGrid(grid));
         }
     }
 
     PointCloud input_;
     Grids grids_;
+    // ...
 };
 
 // ================== VoxelGrid.hpp ==================
 
+// structure of a single grid
 struct Voxel
 {
     Eigen::Vector4f centroid;
@@ -91,41 +82,43 @@ struct Voxel
     std::vector<size_t> point_indices;
 };
 
+// structure and operations of the grids
+
+using Voxels = std::unordered_map<size_t, Voxel>;
+
 template <typename PointT>
-class VoxelGridT
+class VoxelStructT
 {
-    using Voxels = std::unordered_map<size_t, Voxel>;
     using PointCloud = PointCloudT<PointT>;
 
 public:
-    // user have to define this
+    // Require user to define PointType or explicitly pass to GridFilter
     using PointType = PointT;
 
-    VoxelGridT() {}
+    VoxelStructT(const PointCloud &input, Voxels &voxels) {}
 
-    void setUp(Voxels &voxels) {}
+    // void setUp() {}
 
     void addPointToGrid() {}
 
     void addPointsToGrid(const PointCloud &input, Voxels &voxels)
     {
-        for (auto &voxel : voxels)
-            addPointToGrid();
+        addPointToGrid();
     }
 
-    bool filterGrid(const Voxel &v)
+    bool filterGrid(const std::pair<const size_t, Voxel> &v)
     {
         // filter based on metric ...
         return false;
     }
 
-    PointT reduceGrid(const Voxel &v) { return PointT(); }
+    PointT reduceGrid(const std::pair<const size_t, Voxel> &v) { return PointT(); }
 
     // attributes of the grid structure
 };
 
 template <typename PointT>
-using VoxelGrid = GridFilter<VoxelGridT<PointT>, Voxel>;
+using VoxelGrid = GridFilter<VoxelStructT<PointT>, Voxels>;
 
 int main()
 {
