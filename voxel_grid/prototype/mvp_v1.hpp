@@ -179,6 +179,11 @@ protected:
     {
         for (const auto &pt : input.points)
             addPointToGrid(grid, pt);
+
+        // addPointsToGrid VS for + addPointToGrid
+        // If user want to do it by sorting vector, they can do it here
+        // While for the structure with two loops in applyFilter,
+        // user can't sort after the loop unless we add an extra function inbetween
     }
 
     std::optional<PointT> filterGrid(Grid::iterator grid_it, Grid &grid)
