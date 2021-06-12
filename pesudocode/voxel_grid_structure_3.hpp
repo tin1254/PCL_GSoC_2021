@@ -3,6 +3,7 @@
 #include <vector>
 #include <unordered_map>
 #include <Eigen/Dense>
+#include <optional>
 
 class PointXYZ
 {
@@ -17,6 +18,9 @@ public:
     PointCloudT() {}
 
     void push_back(PointT p) {}
+
+    // Defined in pcl::PointCloud
+    using PointType = PointT;
 };
 
 template <typename PointT>
@@ -32,12 +36,17 @@ public:
 
 // ================== Base of VoxelGrid ==================
 
-// Check point type by looking at typedef/using in the GridStruct,
-// require user to define it
-#define GET_POINT_TYPE(GridStruct) \
-    typename GridStruct::PointType
+// Deduce type
 
-template <typename GridStruct, typename Grids, typename PointT = GET_POINT_TYPE(GridStruct)>
+// I've tried deducing by: https://stackoverflow.com/questions/22632236/how-is-possible-to-deduce-function-argument-type-in-c
+// but it doesn't work in our case
+template <typename T>
+using get_point_type = typename T::PointCloud::PointType;
+
+template <typename T>
+using get_grid_type = typename T::Grid;
+
+template <typename GridStruct, typename Grid = get_grid_type<GridStruct>, typename PointT = get_point_type<GridStruct>>
 class GridFilter : public GridStruct, public Filter<PointT>
 {
     // TODO:
@@ -47,28 +56,27 @@ class GridFilter : public GridStruct, public Filter<PointT>
     using PointCloud = PointCloudT<PointT>;
 
 public:
-    GridFilter() : GridStruct(input_, grids_)
+    GridFilter() : GridStruct(input_, grid_)
     {
     }
 
 protected:
     void applyFilter(PointCloud &output)
     {
-        // move setup to the contructor of GridStruct?
-        // GridStruct::setUp(input_, grids_);
-        GridStruct::addPointsToGrid(input_, grids_);
+        GridStruct::addPointsToGrid(input_, grid_);
 
-        for (const auto &grid : grids_)
+        for (auto it = grid_.begin(); it != grid_.end(); ++it)
         {
-            if (GridStruct::filterGrid(grid))
-                continue;
-
-            output.push_back(GridStruct::reduceGrid(grid));
+            // or filterGrid(it, grid_, input_) ?
+            if (std::optional<PointT> res = GridStruct::filterGrid(it, grid_); res)
+            {
+                output.push_back(res.value());
+            }
         }
     }
 
     PointCloud input_;
-    Grids grids_;
+    Grid grid_;
     // ...
 };
 
@@ -84,41 +92,45 @@ struct Voxel
 
 // structure and operations of the grids
 
-using Voxels = std::unordered_map<size_t, Voxel>;
-
 template <typename PointT>
 class VoxelStructT
 {
-    using PointCloud = PointCloudT<PointT>;
-
 public:
-    // Require user to define PointType or explicitly pass to GridFilter
-    using PointType = PointT;
+    // Require user to define them
+    // not sure if there are a nicer way to do it
+    using PointCloud = PointCloudT<PointT>;
+    using Grid = std::unordered_map<size_t, Voxel>;
 
-    VoxelStructT(const PointCloud &input, Voxels &voxels) {}
-
-    // void setUp() {}
+    VoxelStructT(const PointCloud &input, Grid &voxels) {}
 
     void addPointToGrid() {}
 
-    void addPointsToGrid(const PointCloud &input, Voxels &voxels)
+    void addPointsToGrid(const PointCloud &input, Grid &voxels)
     {
         addPointToGrid();
     }
 
-    bool filterGrid(const std::pair<const size_t, Voxel> &v)
-    {
-        // filter based on metric ...
-        return false;
-    }
+    // bool filterGrid(const std::pair<const size_t, Voxel> &v)
+    // {
+    //     return false;
+    // }
 
-    PointT reduceGrid(const std::pair<const size_t, Voxel> &v) { return PointT(); }
+    // PointT reduceGrid(const std::pair<const size_t, Voxel> &v) { return PointT(); }
+
+    // filterGrid + reduceGrid
+    std::optional<PointT> filterGrid(Grid::iterator grid_it, Grid &grid)
+    {
+        if (true)
+            return PointT();
+        else
+            return std::nullopt;
+    }
 
     // attributes of the grid structure
 };
 
 template <typename PointT>
-using VoxelGrid = GridFilter<VoxelStructT<PointT>, Voxels>;
+using VoxelGrid = GridFilter<VoxelStructT<PointT>>;
 
 int main()
 {
