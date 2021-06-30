@@ -1,11 +1,11 @@
-// C++ 17
+
 
 #include <iostream>
 // #include <type_traits>
 #include <vector>
 #include <unordered_map>
 #include <Eigen/Dense>
-#include <optional>
+#include <boost/optional.hpp>
 
 using Vec3f = Eigen::Vector3f;
 
@@ -103,10 +103,12 @@ protected:
     void applyFilter(PointCloud &output)
     {
         GridStruct::setUp(this);
-        GridStruct::addPointsToGrid(input_, grid_);
+
+        for (const auto &pt : input_.points)
+            GridStruct::addPointToGrid(grid_, pt);
 
         for (auto it = grid_.begin(); it != grid_.end(); ++it)
-            if (std::optional<PointT> res = GridStruct::filterGrid(it, grid_); res)
+            if (auto res = GridStruct::filterGrid(it, grid_); res)
                 output.push_back(res.value());
     }
 
@@ -175,24 +177,13 @@ protected:
         grid[h].num_pt++;
     }
 
-    void addPointsToGrid(const PointCloud &input, Grid &grid)
-    {
-        for (const auto &pt : input.points)
-            addPointToGrid(grid, pt);
-
-        // addPointsToGrid VS for + addPointToGrid
-        // If user want to do it by sorting vector, they can do it here
-        // While for the structure with two loops in applyFilter,
-        // user can't sort after the loop unless we add an extra function inbetween
-    }
-
-    std::optional<PointT> filterGrid(Grid::iterator grid_it, Grid &grid)
+    boost::optional<PointT> filterGrid(Grid::iterator grid_it, Grid &grid)
     {
         const auto &voxel = grid_it->second;
         if (voxel.num_pt >= min_points_per_voxel_)
             return PointT(voxel.centroid / voxel.num_pt);
         else
-            return std::nullopt;
+            return boost::none;
     }
 
     Eigen::Vector3i min_b_, max_b_, div_b_, divb_mul_;
