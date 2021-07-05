@@ -118,6 +118,10 @@ class GridFilterBase : public TransformFilter<GridStruct> {
     min_points_per_voxel_ = num;
   }
 
+  size_t getMinimumPointsNumberPerVoxel() const {
+    return min_points_per_voxel_;
+  }
+
  protected:
   Vec3f leaf_size_ = Eigen::Vector3f::Constant(0.05);
   size_t min_points_per_voxel_;
@@ -158,6 +162,12 @@ class VoxelStructT {
 
     div_b_ = (max_b_ - min_b_).array() + 1;
     divb_mul_ << div_b_[0], div_b_[0], div_b_[1];
+
+    // NOTE: we need to store the members variables of GridFilterBase which are
+    // needed by the member functions in this class as member variables
+    // e.g.
+    min_points_per_voxel_ = grid_filter->getMinimumPointsNumberPerVoxel();
+    // ...
 
     return true;
   }
