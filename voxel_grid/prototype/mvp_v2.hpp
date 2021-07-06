@@ -82,10 +82,9 @@ class TransformFilter : public Filter<PointT> {
         output.push_back(res.value());
       }
     }
-
-    // push back leaf_layout_ to the base
-    grid_struct_.saveResults(this);
   }
+
+  std::vector<int> getLeafLayout() const { return grid_struct_.getLeafLayout(); }
 
   GridStruct grid_struct_;
 };
@@ -124,14 +123,13 @@ class GridFilterBase : public TransformFilter<GridStruct> {
     return min_points_per_voxel_;
   }
 
+  //   void applyFilter(PointCloud &output) override {
+  //       TransformFilter<GridStruct>::applyFilter(output);
+  //   }
+
  protected:
   Vec3f leaf_size_ = Eigen::Vector3f::Constant(0.05);
   size_t min_points_per_voxel_;
-  std::vector<int> leaf_layout_;
-
- private:
-  template <typename>
-  friend class VoxelStructT;
 };
 
 // ================== voxel_grid.hpp ==================
@@ -182,17 +180,7 @@ class VoxelStructT {
     return true;
   }
 
-  void saveResults(TransformFilter<VoxelStructT> *transform_filter) {
-    // COMMENT:
-    // 1. need to duplicate leaf_layout_ in both base and GridStruct
-    // 2. need to declare friend in GridFilterBase (for every grid filters which
-    // have additional results). Otherwise we have to declare a public
-    // setLeafLayout which doesn't make sense in the user's point of view
-
-    auto grid_filter =
-        static_cast<GridFilterBase<VoxelStructT> *>(transform_filter);
-    grid_filter->leaf_layout_ = std::move(leaf_layout_);
-  }
+  const std::vector<int> getLeafLayout() const { return leaf_layout_; }
 
   size_t hashPoint(const PointT &pt) {
     const Vec3f tmp = pt.p.array() * inverse_leaf_size_.array();
