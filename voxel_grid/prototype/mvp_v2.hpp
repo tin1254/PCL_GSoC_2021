@@ -62,7 +62,7 @@ class TransformFilter : public Filter<PointT> {
     grid_struct_ = std::move(grid_struct);
   }
 
-  void applyFilter(PointCloud &output) {
+  void applyFilter(PointCloud &output) override {
     if (!grid_struct_.setUp(this)) {
       output = this->input_;
       return;
