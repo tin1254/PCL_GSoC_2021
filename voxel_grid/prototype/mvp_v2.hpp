@@ -159,7 +159,6 @@ class VoxelStructT {
     return hashPoint(PointT(x, y, z));
   }
 
- protected:
   bool setUp(const TransformFilter<VoxelStructT> *transform_filter) {
     const auto grid_filter =
         static_cast<const GridFilterBase<VoxelStructT> *>(transform_filter);
@@ -218,10 +217,6 @@ class VoxelStructT {
   Grid grid_;
   size_t num_centroids = 0;
   std::vector<int> leaf_layout_;
-
- private:
-  template <typename, typename>
-  friend class TransformFilter;
 };
 
 template <typename PointT>
