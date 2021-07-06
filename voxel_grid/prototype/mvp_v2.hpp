@@ -1,9 +1,8 @@
 
 
-#include <iostream>
-// #include <type_traits>
 #include <Eigen/Dense>
 #include <boost/optional.hpp>
+#include <iostream>
 #include <unordered_map>
 #include <vector>
 
@@ -83,6 +82,9 @@ class TransformFilter : public Filter<PointT> {
         output.push_back(res.value());
       }
     }
+
+    // push back leaf_layout_ to the base
+    grid_struct_.saveResults(this);
   }
 
   GridStruct grid_struct_;
@@ -125,6 +127,11 @@ class GridFilterBase : public TransformFilter<GridStruct> {
  protected:
   Vec3f leaf_size_ = Eigen::Vector3f::Constant(0.05);
   size_t min_points_per_voxel_;
+  std::vector<int> leaf_layout_;
+
+ private:
+  template <typename>
+  friend class VoxelStructT;
 };
 
 // ================== voxel_grid.hpp ==================
@@ -169,7 +176,22 @@ class VoxelStructT {
     min_points_per_voxel_ = grid_filter->getMinimumPointsNumberPerVoxel();
     // ...
 
+    // we have 10 points in main
+    leaf_layout_.resize(10, -1);
+
     return true;
+  }
+
+  void saveResults(TransformFilter<VoxelStructT> *transform_filter) {
+    // COMMENT:
+    // 1. need to duplicate leaf_layout_ in both base and GridStruct
+    // 2. need to declare friend in GridFilterBase (for every grid filters which
+    // have additional results). Otherwise we have to declare a public
+    // setLeafLayout which doesn't make sense in the user's point of view
+
+    auto grid_filter =
+        static_cast<GridFilterBase<VoxelStructT> *>(transform_filter);
+    grid_filter->leaf_layout_ = std::move(leaf_layout_);
   }
 
   size_t hashPoint(const PointT &pt) {
@@ -186,16 +208,22 @@ class VoxelStructT {
 
   boost::optional<PointT> filterGrid(Grid::iterator grid_it) {
     const auto &voxel = grid_it->second;
-    if (voxel.num_pt >= min_points_per_voxel_)
+    if (voxel.num_pt >= min_points_per_voxel_) {
+      leaf_layout_[grid_it->first] = num_centroids++;
       return PointT(voxel.centroid / voxel.num_pt);
-    else
+    } else {
+      leaf_layout_[grid_it->first] = -1;
       return boost::none;
+    }
   }
 
   Eigen::Vector3i min_b_, max_b_, div_b_, divb_mul_;
   Vec3f inverse_leaf_size_;
   size_t min_points_per_voxel_;
   Grid grid_;
+
+  size_t num_centroids = 0;
+  std::vector<int> leaf_layout_;
 
  private:
   template <typename, typename>
