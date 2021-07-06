@@ -84,7 +84,14 @@ class TransformFilter : public Filter<PointT> {
     }
   }
 
-  std::vector<int> getLeafLayout() const { return grid_struct_.getLeafLayout(); }
+  // need to declare the corresponding functions in GridStruct
+  std::vector<int> getLeafLayout() const {
+    return grid_struct_.getLeafLayout();
+  }
+
+  inline int getCentroidIndex(float x, float y, float z) const {
+    return grid_struct_.getCentroidIndex(x, y, z);
+  }
 
   GridStruct grid_struct_;
 };
@@ -123,10 +130,6 @@ class GridFilterBase : public TransformFilter<GridStruct> {
     return min_points_per_voxel_;
   }
 
-  //   void applyFilter(PointCloud &output) override {
-  //       TransformFilter<GridStruct>::applyFilter(output);
-  //   }
-
  protected:
   Vec3f leaf_size_ = Eigen::Vector3f::Constant(0.05);
   size_t min_points_per_voxel_;
@@ -151,6 +154,10 @@ class VoxelStructT {
   auto begin() { return grid_.begin(); }
   auto end() { return grid_.end(); }
   size_t size() { return grid_.size(); }
+
+  inline int getCentroidIndex(float x, float y, float z) const {
+    return hashPoint(PointT(x, y, z));
+  }
 
  protected:
   bool setUp(const TransformFilter<VoxelStructT> *transform_filter) {
@@ -209,7 +216,6 @@ class VoxelStructT {
   Vec3f inverse_leaf_size_;
   size_t min_points_per_voxel_;
   Grid grid_;
-
   size_t num_centroids = 0;
   std::vector<int> leaf_layout_;
 
