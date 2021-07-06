@@ -6,6 +6,8 @@
 #include <unordered_map>
 #include <vector>
 
+// ================== Necessary stuff for running ==================
+
 using Vec3f = Eigen::Vector3f;
 
 class PointXYZ {
@@ -42,7 +44,10 @@ class Filter {
 
  public:
   Filter() {}
+
   void filter(PointCloud &output) { applyFilter(output); }
+  const PointCloud &getInputCloud() const { return input_; }
+  void setInputCloud(const PointCloud &input) { input_ = input; }
 
  protected:
   virtual void applyFilter(PointCloud &pc) = 0;
@@ -57,11 +62,11 @@ template <typename GridStruct, typename PointT = GET_POINT_TYPE(GridStruct)>
 class TransformFilter : public Filter<PointT> {
   using PointCloud = PointCloudT<PointXYZ>;
 
- protected:
   TransformFilter(GridStruct grid_struct) {
     grid_struct_ = std::move(grid_struct);
   }
 
+ protected:
   void applyFilter(PointCloud &output) override {
     if (!grid_struct_.setUp(this)) {
       output = this->input_;
@@ -84,14 +89,7 @@ class TransformFilter : public Filter<PointT> {
     }
   }
 
-  // need to declare the corresponding functions in GridStruct
-  std::vector<int> getLeafLayout() const {
-    return grid_struct_.getLeafLayout();
-  }
-
-  inline int getCentroidIndex(float x, float y, float z) const {
-    return grid_struct_.getCentroidIndex(x, y, z);
-  }
+  const GridStruct &getGridStruct() { return grid_struct_; }
 
   GridStruct grid_struct_;
 };
@@ -105,11 +103,7 @@ class GridFilterBase : public TransformFilter<GridStruct> {
  public:
   GridFilterBase() : TransformFilter<GridStruct>(GridStruct()) {}
 
-  // common grid filter functions
-
-  const PointCloud &getInputCloud() const { return this->input_; }
-
-  void setInputCloud(const PointCloud &input) { this->input_ = input; }
+  // ====== common grid filter functions ======
 
   Eigen::Vector3f getLeafSize() const { return leaf_size_; }
 
@@ -129,6 +123,8 @@ class GridFilterBase : public TransformFilter<GridStruct> {
   size_t getMinimumPointsNumberPerVoxel() const {
     return min_points_per_voxel_;
   }
+
+  //  ============================================
 
  protected:
   Vec3f leaf_size_ = Eigen::Vector3f::Constant(0.05);
@@ -154,10 +150,6 @@ class VoxelStructT {
   auto begin() { return grid_.begin(); }
   auto end() { return grid_.end(); }
   size_t size() { return grid_.size(); }
-
-  inline int getCentroidIndex(float x, float y, float z) const {
-    return hashPoint(PointT(x, y, z));
-  }
 
   bool setUp(const TransformFilter<VoxelStructT> *transform_filter) {
     const auto grid_filter =
@@ -186,8 +178,6 @@ class VoxelStructT {
     return true;
   }
 
-  const std::vector<int> getLeafLayout() const { return leaf_layout_; }
-
   size_t hashPoint(const PointT &pt) {
     const Vec3f tmp = pt.p.array() * inverse_leaf_size_.array();
     return divb_mul_.dot(tmp.cast<int>() - min_b_);
@@ -203,7 +193,7 @@ class VoxelStructT {
   boost::optional<PointT> filterGrid(Grid::iterator grid_it) {
     const auto &voxel = grid_it->second;
     if (voxel.num_pt >= min_points_per_voxel_) {
-      leaf_layout_[grid_it->first] = num_centroids++;
+      leaf_layout_[grid_it->first] = num_voxels_++;
       return PointT(voxel.centroid / voxel.num_pt);
     } else {
       leaf_layout_[grid_it->first] = -1;
@@ -215,12 +205,39 @@ class VoxelStructT {
   Vec3f inverse_leaf_size_;
   size_t min_points_per_voxel_;
   Grid grid_;
-  size_t num_centroids = 0;
+  size_t num_voxels_ = 0;
   std::vector<int> leaf_layout_;
 };
 
+// COMMENT: or directly declare this class as VoxelGrid
+template <typename GridStruct, typename PointT>
+class VoxelFilter : public GridFilterBase<GridStruct<PointT>> {
+ public:
+  VoxelFilter() {}
+
+  //  ====== functions specific to VoxelGrid ======
+
+  inline int getCentroidIndex(float x, float y, float z) const {
+    return this->getGridStruct().hashPoint(PointT(x, y, z));
+  }
+
+  std::vector<int> getLeafLayout() const {
+    return this->getGridStruct().leaf_layout_;
+  }
+
+  inline Eigen::Vector3i getGridCoordinates(float x, float y, float z) const {
+    const auto &inverse_leaf_size = this->getGridStruct().inverse_leaf_size_;
+    return Eigen::Vector3i(
+        static_cast<int>(std::floor(x * inverse_leaf_size[0])),
+        static_cast<int>(std::floor(y * inverse_leaf_size[1])),
+        static_cast<int>(std::floor(z * inverse_leaf_size[2])));
+  }
+
+  //  =============================================
+};
+
 template <typename PointT>
-using VoxelGrid = GridFilterBase<VoxelStructT<PointT>>;
+using VoxelGrid = VoxelFilter<VoxelStructT<PointT>>;
 
 int main() {
   PointCloudT<PointXYZ> input;
