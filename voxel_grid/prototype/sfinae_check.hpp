@@ -30,21 +30,40 @@ struct IsGridStruct {
   static constexpr std::false_type hasAddPoint(...);
 
   template <typename T>
-  static constexpr auto hasFilter(T*) -> typename std::is_same<
+  static constexpr auto hasFilterBegin(T*) -> typename std::is_same<
       decltype(std::declval<T>().filterGrid(
           std::declval<decltype(std::declval<T>().begin())>())),
       std::optional<PointT>>::type;
   template <typename>
-  static constexpr std::false_type hasFilter(...);
+  static constexpr std::false_type hasFilterBegin(...);
+
+  template <typename T>
+  static constexpr auto hasFilterEnd(T*) -> typename std::is_same<
+      decltype(std::declval<T>().filterGrid(
+          std::declval<decltype(std::declval<T>().end())>())),
+      std::optional<PointT>>::type;
+  template <typename>
+  static constexpr std::false_type hasFilterEnd(...);
+
+  template <typename T>
+  static constexpr auto hasSize(T*) ->
+      typename std::is_same<decltype(std::declval<T>().size()),
+                            std::size_t>::type;
+  template <typename>
+  static constexpr std::false_type hasSize(...);
 
   using has_set_up = decltype(hasSetUp<C>(0));
   using has_add_point = decltype(hasAddPoint<C>(0));
-  using has_filter = decltype(hasFilter<C>(0));
+  using has_filter_begin = decltype(hasFilterBegin<C>(0));
+  using has_filter_end = decltype(hasFilterEnd<C>(0));
+  using has_size = decltype(hasSize<C>(0));
 
  public:
   static constexpr bool is_set_up_valid = has_set_up::value;
   static constexpr bool is_add_point_valid = has_add_point::value;
-  static constexpr bool is_filter_valid = has_filter::value;
+  static constexpr bool is_filter_valid =
+      has_filter_begin::value && has_filter_end::value;
+  static constexpr bool is_size_valid = has_size::value;
 
   // static constexpr bool is_valid = has_add_point::value && has_set_up::value
   // && has_filter::value; static constexpr std::string print(){
@@ -67,7 +86,10 @@ class TransformFilter {
       "Required member is not satisfied: void addPointToGrid(PointT& pt)");
   static_assert(is_grid_struct::is_filter_valid,
                 "Required member is not satisfied: std::optional<PointXYZ> "
-                "filterGrid(...)");
+                "filterGrid(begin()) or std::optional<PointXYZ> "
+                "filterGrid(end())");
+  static_assert(is_grid_struct::is_size_valid,
+                "Required member is not satisfied: std::size_t size()");
 
   void applyFilter() {
     const bool res = grid_struct_.setUp(this);
