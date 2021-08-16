@@ -31,7 +31,7 @@ struct IsGridStruct {
 
   template <typename T>
   static constexpr auto hasFilterBegin(T*) -> typename std::is_same<
-      decltype(std::declval<T>().filterGrid(begin(std::declval<T>()))),
+      decltype(std::declval<T>().filterGrid(begin(std::declval<T&>()))),
       boost::optional<PointT>>::type;
   template <typename T>
   static constexpr auto hasFilterBegin(T*) -> typename std::is_same<
@@ -77,7 +77,7 @@ struct IsGridStruct {
 }  // namespace detail
 
 template <typename GridStruct>
-auto begin(GridStruct grid_struct) -> decltype(grid_struct.grid_.begin()) {
+auto begin(GridStruct& grid_struct) -> decltype(grid_struct.grid_.begin()) {
   return grid_struct.grid_.begin();
 }
 
