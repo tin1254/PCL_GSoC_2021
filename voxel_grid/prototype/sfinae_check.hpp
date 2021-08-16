@@ -64,13 +64,13 @@ struct IsGridStruct {
   using has_filter_end = decltype(hasFilterEnd<C>(0));
   using has_size = decltype(hasSize<C>(0));
 
- public:
   static constexpr bool is_set_up_valid = has_set_up::value;
   static constexpr bool is_add_point_valid = has_add_point::value;
   static constexpr bool is_filter_valid =
       has_filter_begin::value && has_filter_end::value;
   static constexpr bool is_size_valid = has_size::value;
 
+ public:
   static constexpr bool is_valid =
       is_set_up_valid && is_add_point_valid && is_filter_valid && is_size_valid;
 };
@@ -104,8 +104,7 @@ struct MyGridStruct {
 
 template <typename GridStruct, typename PointT>
 class TransformFilter {
-  using is_grid_struct = detail::IsGridStruct<GridStruct, PointT>;
-  static_assert(is_grid_struct::is_valid,
+  static_assert(detail::IsGridStruct<GridStruct, PointT>::is_valid,
                 "GridStruct requirement is not satisfied");
 
  public:
