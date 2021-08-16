@@ -82,6 +82,15 @@ auto begin(GridStruct& grid_struct) -> decltype(grid_struct.grid_.begin()) {
 }
 
 template <typename PointT>
+struct MyGridStruct;
+
+template <typename PointT>
+typename MyGridStruct<PointT>::Grid::iterator begin(
+    MyGridStruct<PointT>& grid_struct) {
+  return grid_struct.grid_.begin();
+}
+
+template <typename PointT>
 struct MyGridStruct {
   using Grid = std::vector<size_t>;
 
